@@ -1,0 +1,29 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger:
+- main
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+- task: DotNetCoreCLI@2
+  inputs:
+    command: 'build'
+    projects: 'NetTestDemo.sln'
+- task: DotNetCoreCLI@2
+  displayName: Test
+  inputs:
+    command: test
+    projects: 'NetTestDemo.sln'
+    publishTestResults: true
+    arguments: '/p:CollectCoverage=true /p:CoverletOutputFormat=cobertura'
+- task: PublishCodeCoverageResults@2
+  displayName: 'Publish code coverage results'
+  condition: succeededOrFailed()
+  inputs:
+    summaryFileLocation: '**/*coverage.cobertura.xml'
+
