@@ -1,0 +1,106 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger:
+- main
+
+variables:
+  buildConfiguration: 'Release'
+
+stages:
+- stage: 'Build'
+  displayName: 'Build .net core application'
+  jobs:
+  - job: 'Build'
+    displayName: 'Build job'
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - task: DotNetCoreCLI@2
+      inputs:
+        command: 'build'
+        projects: 'NetTestDemo.sln'
+- stage: 'Test'
+  displayName: 'Test .net core application'
+  jobs:
+  - job: 'Test'
+    displayName: 'Test job'
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - task: DotNetCoreCLI@2
+      displayName: Test
+      inputs:
+        command: test
+        projects: 'NetTestDemo.sln'
+        publishTestResults: true
+        arguments: '/p:CollectCoverage=true /p:CoverletOutputFormat=cobertura'
+    - task: PublishCodeCoverageResults@2
+      displayName: 'Publish code coverage results'
+      condition: succeededOrFailed()
+      inputs:
+        summaryFileLocation: '**/*coverage.cobertura.xml'
+- stage: 'Publish'
+  displayName: 'Publish .net core application'
+  dependsOn: 'Test'
+  condition: succeeded('Test')
+  jobs:
+  - job: 'Publish'
+    pool:
+      vmImage: ubuntu-latest
+    steps:
+    - task: DotNetCoreCLI@2
+      inputs:
+        command: 'publish'
+        publishWebProjects: true
+        arguments: '--configuration $(buildConfiguration) --output $(Build.ArtifactStagingDirectory)/$(buildConfiguration)'
+    - publish: '$(Build.ArtifactStagingDirectory)'
+      artifact: drop
+- stage: 'Dev'
+  displayName: 'Deploy .net core application to dev'
+  dependsOn: 'Publish'
+  condition: succeeded('Publish')
+  jobs:
+  - deployment: 'Deploy'
+    pool:
+      vmImage: ubuntu-latest
+    environment: dev
+    variables:
+    - group: Release
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - download: current
+            artifact: drop
+          - task: AzureWebApp@1
+            inputs:
+              azureSubscription: 'AzureRmConnection'
+              appType: 'webAppLinux'
+              appName: '$(WebAppNameDev)'
+              package: '$(Pipeline.Workspace)/drop/$(buildConfiguration)/*.zip'
+- stage: 'Staging'
+  displayName: 'Deploy .net core application to staging'
+  dependsOn: 'Dev'
+  condition: succeeded('Dev')
+  jobs:
+  - deployment: 'Deploy'
+    pool:
+      vmImage: ubuntu-latest
+    environment: staging
+    variables:
+    - group: Release
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - download: current
+            artifact: drop
+          - task: AzureWebApp@1
+            inputs:
+              azureSubscription: 'AzureRmConnection'
+              appType: 'webAppLinux'
+              appName: '$(WebAppNameStaging)'
+              package: '$(Pipeline.Workspace)/drop/$(buildConfiguration)/*.zip'
