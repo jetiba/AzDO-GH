@@ -5,6 +5,10 @@
 
 trigger:
 - main
+pr: none
+#   branches:
+#     include:
+#       - main
 
 variables:
   buildConfiguration: 'Release'
