@@ -21,5 +21,15 @@ namespace NetTestDemo.App
         {
             return a / b;
         }
+
+        public int[] CharacterCount(string input)
+        {
+            int[] counts = new int[256]; // Assuming ASCII characters
+            foreach (char c in input)
+            {
+                counts[(int)c]++;
+            }
+                return counts;
+        }
     }
 }
